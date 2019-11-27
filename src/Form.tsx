@@ -5,7 +5,10 @@ import { deriveKeys } from './helpers/deriveKeys';
 import useState from './helpers/useState';
 import { Errors, FormHookContext, InitialValues, Touched } from './types';
 
-export const formContext = React.createContext<FormHookContext>(null as any, () => 0);
+export const formContext = React.createContext<FormHookContext>(
+  null as any,
+  () => 0
+);
 
 export interface SuccessBag {
   resetForm: () => void;
@@ -54,10 +57,15 @@ const Form = <Values extends object>({
   validateOnChange,
   ...formProps // used to inject className, onKeyDown and related on the <form>
 }: FormOptions<Values>) => {
-  const { 0: values, 1: setFieldValue, 2: setValuesState } = useState(initialValues || EMPTY_OBJ);
+  const { 0: values, 1: setFieldValue, 2: setValuesState } = useState(
+    initialValues || EMPTY_OBJ
+  );
   const { 0: touched, 1: touch, 2: setTouchedState } = useState(
-    initialErrors ? () => deriveInitial(initialErrors, true) : EMPTY_OBJ);
-  const { 0: errors, 1: setFieldError, 2: setErrorState } = useState(initialErrors || EMPTY_OBJ);
+    initialErrors ? () => deriveInitial(initialErrors, true) : EMPTY_OBJ
+  );
+  const { 0: errors, 1: setFieldError, 2: setErrorState } = useState(
+    initialErrors || EMPTY_OBJ
+  );
   const { 0: isSubmitting, 1: setSubmitting } = React.useState(false);
   const { 0: formError, 1: setFormError } = React.useState();
 
@@ -68,52 +76,67 @@ const Form = <Values extends object>({
     // TO prevent a rerender when we have no validate function and it gets called
     // we reuse the EMPTY_OBJ since this implies equality for the state-hook and
     // triggers no render.
-    const validationErrors = validate ? validate(values) : EMPTY_OBJ;
-    setErrorState(validationErrors);
-    emit(([] as Array<string>).concat(
-      // We concat current and new errors to ensure everything
-      // Will be proparly rerendered.
-      deriveKeys(validationErrors || EMPTY_OBJ),
-      deriveKeys(errors || EMPTY_OBJ),
-    ));
+    const promise = Promise.resolve(validate ? validate(values) : EMPTY_OBJ);
+    promise.then(validationErrors => {
+      setErrorState(validationErrors);
+      emit(
+        ([] as Array<string>).concat(
+          // We concat current and new errors to ensure everything
+          // Will be proparly rerendered.
+          deriveKeys(validationErrors || EMPTY_OBJ),
+          deriveKeys(errors || EMPTY_OBJ)
+        )
+      );
+    });
+
     // We return so we can use this in submit without having to rely
     // on the state being set.
-    return validationErrors;
+    return promise;
   };
 
   // Provide a way to reset the full form to the initialValues.
   const resetForm = () => {
     isDirty.current = false;
     setValuesState(initialValues || EMPTY_OBJ);
-    setTouchedState(initialErrors ? deriveInitial(initialErrors, true) : EMPTY_OBJ);
+    setTouchedState(
+      initialErrors ? deriveInitial(initialErrors, true) : EMPTY_OBJ
+    );
     setErrorState(initialErrors || EMPTY_OBJ);
-    emit(([] as Array<string>).concat(
-      // We concat current and new values to ensure everything
-      // Will be proparly rerendered.
-      deriveKeys(initialValues || EMPTY_OBJ),
-      deriveKeys(values),
-    ));
+    emit(
+      ([] as Array<string>).concat(
+        // We concat current and new values to ensure everything
+        // Will be proparly rerendered.
+        deriveKeys(initialValues || EMPTY_OBJ),
+        deriveKeys(values)
+      )
+    );
   };
 
   const handleSubmit = () => {
     // Validate our form
-    const fieldErrors = validateForm();
-    // Use the fieldErrors to set touched state on these fields in case
-    // the consumer is checking touched && error ? showError() : null
-    setTouchedState(deriveInitial(fieldErrors, true));
-    // If we should skip submitting when invalid AND we have fieldErrors go in here
-    if (!shouldSubmitWhenInvalid && deriveKeys(fieldErrors).length > 0) {
-      setSubmitting(false);
-      return emit('s');
-    }
+    return validateForm().then(fieldErrors => {
+      // Use the fieldErrors to set touched state on these fields in case
+      // the consumer is checking touched && error ? showError() : null
+      setTouchedState(deriveInitial(fieldErrors, true));
+      // If we should skip submitting when invalid AND we have fieldErrors go in here
+      if (!shouldSubmitWhenInvalid && deriveKeys(fieldErrors).length > 0) {
+        setSubmitting(false);
+        return emit('s');
+      }
 
-    const setFormErr = (err: string) => {
-      setFormError(err);
-      emit('f');
-    };
+      const setFormErr = (err: string) => {
+        setFormError(err);
+        emit('f');
+      };
 
-    return new Promise(resolve => resolve(
-      onSubmit(values, { setErrors: setErrorState, setFormError: setFormErr })))
+      return new Promise(resolve =>
+        resolve(
+          onSubmit(values, {
+            setErrors: setErrorState,
+            setFormError: setFormErr,
+          })
+        )
+      )
         .then((result: any) => {
           setSubmitting(false);
           emit('s');
@@ -122,8 +145,10 @@ const Form = <Values extends object>({
         .catch((e: any) => {
           setSubmitting(false);
           emit('s');
-          if (onError) onError(e, { setErrors: setErrorState, setFormError: setFormErr });
+          if (onError)
+            onError(e, { setErrors: setErrorState, setFormError: setFormErr });
         });
+    });
   };
 
   // triggers a submit.
@@ -187,12 +212,13 @@ const Form = <Values extends object>({
         values,
       }}
     >
-      {noForm ?
-        children :
+      {noForm ? (
+        children
+      ) : (
         <form onSubmit={submit} {...formProps}>
           {children}
         </form>
-      }
+      )}
     </formContext.Provider>
   );
 };
